@@ -1,0 +1,12 @@
+# 個人設定
+.env
+
+# データ（ハイライト・送信履歴・Notion設定）
+data/
+
+# 自動生成される静的ファイル
+static/
+
+# Python
+__pycache__/
+*.pyc
