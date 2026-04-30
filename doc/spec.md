@@ -23,6 +23,7 @@ highlights/
 ├── server.py           # メインサーバー（全機能を1ファイルに集約）
 ├── README.md           # README（EN）
 ├── README.ja.md        # README（JA）
+├── LICENSE             # MIT ライセンス
 ├── .env.example        # 設定テンプレート
 ├── .env                # 実際の設定（Git管理外）
 ├── .gitignore
@@ -80,6 +81,7 @@ python server.py
 - **フロントエンド**: HTML/CSS/JavaScript（フレームワークなし）
 - **ハイライト取得**: ブックマークレット（DOM 解析）
 - **差分管理**: ハイライトのハッシュ値で重複判定（data/sent.json）
+- **バックアップ/リストア**: Web UI からデータ・設定の保存と復元（JSON形式）
 - **認証**: Basic 認証（外部公開時）
 - **デプロイ**: AWS Lightsail + nginx + Let's Encrypt
 - **多言語対応**: 英語 / 日本語（UI で切り替え可能）

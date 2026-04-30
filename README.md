@@ -18,6 +18,7 @@ A web app that extracts your Kindle highlights and sends them to a Notion databa
 2. Click a bookmarklet to extract highlights from the page
 3. Review highlights in the web UI, then send to Notion
 4. Duplicate highlights are automatically skipped on subsequent runs
+5. Backup & restore all data (highlights, config, .env) from the web UI
 
 ## Quick Start
 
@@ -64,6 +65,15 @@ Open http://localhost:8000 in your browser.
 2. Click the bookmarklet "📖 Kindle→Fetch"
 3. Return to the app to review and send to Notion
 
+### 4. Backup & Restore
+
+The web UI includes a **Backup / Restore** section at the bottom of the page.
+
+- **Download Backup** — saves highlights, send history, Notion config, and `.env` as a single JSON file
+- **Restore from Backup** — upload a previously downloaded JSON to restore all data
+
+This is useful when migrating to a new server or recovering from data loss.
+
 ## Configuration (.env)
 
 | Variable | Description | Default |
@@ -84,6 +94,7 @@ See [deploy_guide.md](deploy_guide.md) for instructions.
 - **Frontend**: Vanilla HTML/CSS/JavaScript (no frameworks)
 - **Highlight Extraction**: Bookmarklet (DOM parsing)
 - **Deduplication**: SHA256 hash of highlight content
+- **Backup/Restore**: Web-based backup and restore of all data and settings
 - **i18n**: English / Japanese (switchable in the UI)
 
 ## Project Structure
@@ -93,6 +104,7 @@ See [deploy_guide.md](deploy_guide.md) for instructions.
 ├── .env.example        # Configuration template
 ├── .env                # Your settings (git-ignored)
 ├── .gitignore
+├── LICENSE             # MIT License
 ├── deploy_setup.sh     # Lightsail setup script
 ├── deploy_guide.md     # Deployment guide (EN)
 ├── deploy_guide.ja.md  # Deployment guide (JA)

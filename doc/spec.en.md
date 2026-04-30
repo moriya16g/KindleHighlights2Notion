@@ -20,6 +20,9 @@
 
 ```
 ├── server.py           # Main server (all-in-one)
+├── README.md           # README (EN)
+├── README.ja.md        # README (JA)
+├── LICENSE             # MIT License
 ├── .env.example        # Configuration template
 ├── .env                # Local settings (git-ignored)
 ├── .gitignore
@@ -77,6 +80,7 @@ See [deploy_guide.md](../deploy_guide.md)
 - **Frontend**: Vanilla HTML/CSS/JavaScript (no frameworks)
 - **Highlight Extraction**: Bookmarklet (DOM parsing)
 - **Deduplication**: SHA256 hash (`data/sent.json`)
+- **Backup/Restore**: Web-based backup and restore of all data and settings (JSON format)
 - **Auth**: Basic authentication (for public deployment)
 - **Deploy**: AWS Lightsail + nginx + Let's Encrypt
 - **i18n**: English / Japanese (switchable in UI)

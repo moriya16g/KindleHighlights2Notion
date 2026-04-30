@@ -275,6 +275,17 @@ INDEX_HTML = r"""<!DOCTYPE html>
         <button id="manual-add-btn" class="btn btn-secondary" data-i18n="manual_add"></button>
       </details>
     </section>
+
+    <section class="card" id="backup-section">
+      <h2 data-i18n="backup_title"></h2>
+      <p data-i18n="backup_desc"></p>
+      <div class="backup-controls">
+        <button id="backup-btn" class="btn btn-primary" data-i18n="backup_download"></button>
+        <button id="restore-btn" class="btn btn-secondary" data-i18n="backup_restore" onclick="document.getElementById('restore-input').click()"></button>
+        <input type="file" id="restore-input" accept=".json" style="display:none;">
+      </div>
+      <div id="backup-status" class="status"></div>
+    </section>
   </main>
 
   <footer>
@@ -473,6 +484,14 @@ footer code { background: #eee; padding: 0.1rem 0.3rem; border-radius: 3px; }
 /* === ol === */
 ol { padding-left: 1.5rem; }
 ol li { margin-bottom: 0.5rem; }
+
+/* === バックアップ === */
+.backup-controls {
+  display: flex;
+  gap: 1rem;
+  margin-top: 1rem;
+  flex-wrap: wrap;
+}
 """
 
 APP_JS = r"""/* Kindle Highlights → Notion */
@@ -538,7 +557,15 @@ const I18N = {
     test_comm_error: '❌ 通信エラー',
     comm_error: '❌ 通信エラー',
     lang_toggle: 'English',
-    api_key_missing: 'Notion API キーまたは DB ID が未設定です'
+    api_key_missing: 'Notion API キーまたは DB ID が未設定です',
+    backup_title: '💾 バックアップ / リストア',
+    backup_desc: 'ハイライト・送信履歴・設定・.env をまとめてバックアップ・リストアできます。',
+    backup_download: '📥 バックアップをダウンロード',
+    backup_restore: '📤 バックアップからリストア',
+    backup_confirm: 'バックアップからリストアすると、現在のデータが上書きされます。続行しますか？',
+    backup_restored: (items) => `✅ リストア完了: ${items}`,
+    backup_invalid: '❌ 無効なバックアップファイルです',
+    backup_error: '❌ リストアエラー'
   },
   en: {
     subtitle: 'Send Kindle highlights to your Notion database',
@@ -595,7 +622,15 @@ const I18N = {
     test_comm_error: '❌ Communication Error',
     comm_error: '❌ Communication Error',
     lang_toggle: '日本語',
-    api_key_missing: 'Notion API key or Database ID is not set'
+    api_key_missing: 'Notion API key or Database ID is not set',
+    backup_title: '💾 Backup / Restore',
+    backup_desc: 'Backup and restore your highlights, send history, config, and .env all at once.',
+    backup_download: '📥 Download Backup',
+    backup_restore: '📤 Restore from Backup',
+    backup_confirm: 'Restoring from backup will overwrite current data. Continue?',
+    backup_restored: (items) => `✅ Restore complete: ${items}`,
+    backup_invalid: '❌ Invalid backup file',
+    backup_error: '❌ Restore error'
   }
 };
 
@@ -663,6 +698,9 @@ const $manualBook = document.getElementById('manual-book');
 const $manualAuthor = document.getElementById('manual-author');
 const $manualText = document.getElementById('manual-text');
 const $manualAddBtn = document.getElementById('manual-add-btn');
+const $backupBtn = document.getElementById('backup-btn');
+const $restoreInput = document.getElementById('restore-input');
+const $backupStatus = document.getElementById('backup-status');
 
 let highlights = [];
 
@@ -886,12 +924,61 @@ async function addManual() {
   }
 }
 
+// --- Backup / Restore ---
+async function downloadBackup() {
+  showStatus($backupStatus, '⏳...', '');
+  try {
+    const res = await fetch(API + '/api/backup');
+    const blob = await res.blob();
+    const cd = res.headers.get('Content-Disposition') || '';
+    const match = cd.match(/filename="?(.+?)"?$/);
+    const filename = match ? match[1] : 'backup.json';
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename; a.click();
+    URL.revokeObjectURL(url);
+    showStatus($backupStatus, '✅', 'ok');
+  } catch (e) {
+    showStatus($backupStatus, '❌ ' + e.message, 'error');
+  }
+}
+
+async function restoreBackup(file) {
+  if (!confirm(t('backup_confirm'))) return;
+  showStatus($backupStatus, '⏳...', '');
+  try {
+    const text = await file.text();
+    const data = JSON.parse(text);
+    if (!data.version) { showStatus($backupStatus, t('backup_invalid'), 'error'); return; }
+    const res = await fetch(API + '/api/restore', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: text
+    });
+    const result = await res.json();
+    if (result.error) {
+      showStatus($backupStatus, t('backup_error') + ': ' + result.error, 'error');
+    } else {
+      showStatus($backupStatus, t('backup_restored')(result.restored.join(', ')), 'ok');
+      await loadConfig();
+      await loadHighlights();
+    }
+  } catch (e) {
+    showStatus($backupStatus, t('backup_error') + ': ' + e.message, 'error');
+  }
+  $restoreInput.value = '';
+}
+
 // --- Events ---
 $saveConfigBtn.addEventListener('click', saveConfig);
 $testNotionBtn.addEventListener('click', testNotion);
 $refreshBtn.addEventListener('click', loadHighlights);
 $sendBtn.addEventListener('click', sendToNotion);
 $manualAddBtn.addEventListener('click', addManual);
+$backupBtn.addEventListener('click', downloadBackup);
+$restoreInput.addEventListener('change', (e) => {
+  if (e.target.files[0]) restoreBackup(e.target.files[0]);
+});
 
 $selectAll.addEventListener('change', () => {
   document.querySelectorAll('.hl-check').forEach(cb => { cb.checked = $selectAll.checked; });
@@ -1104,6 +1191,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self._get_config()
         elif path == '/api/bookmarklet':
             self._get_bookmarklet()
+        elif path == '/api/backup':
+            self._backup()
         else:
             self._serve_static(path)
 
@@ -1120,6 +1209,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self._save_config()
         elif path == '/api/test-notion':
             self._test_notion()
+        elif path == '/api/restore':
+            self._restore()
         else:
             self._error(404, 'Not Found')
 
@@ -1302,6 +1393,78 @@ class Handler(http.server.BaseHTTPRequestHandler):
             'properties': prop_summary,
             'found': found,
             'missing': missing,
+        })
+
+    def _backup(self):
+        """全データを1つの JSON としてダウンロード"""
+        import datetime
+        backup = {
+            'version': 1,
+            'created_at': datetime.datetime.now().isoformat(),
+            'highlights': load_json(HIGHLIGHTS_FILE, []),
+            'sent': load_json(SENT_FILE, []),
+            'config': load_json(CONFIG_FILE, {}),
+            'env': {}
+        }
+
+        # .env ファイルの内容を含める
+        env_path = os.path.join(BASE_DIR, '.env')
+        if os.path.exists(env_path):
+            with open(env_path, 'r', encoding='utf-8') as f:
+                backup['env_raw'] = f.read()
+            # パース済みも含める
+            for key in ('HOST', 'PORT', 'BASE_URL', 'BASIC_AUTH_USER', 'BASIC_AUTH_PASS'):
+                val = os.environ.get(key, '')
+                if val:
+                    backup['env'][key] = val
+
+        body = json.dumps(backup, ensure_ascii=False, indent=2).encode('utf-8')
+        timestamp = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
+        filename = f'kindle-highlights-backup-{timestamp}.json'
+
+        self.send_response(200)
+        self.send_header('Content-Type', 'application/json; charset=utf-8')
+        self.send_header('Content-Disposition', f'attachment; filename="{filename}"')
+        self._cors_headers()
+        self.send_header('Content-Length', len(body))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def _restore(self):
+        """バックアップ JSON からデータを復元"""
+        body = self._read_body()
+
+        if 'version' not in body:
+            self._json_response({'error': 'Invalid backup file'}, 400)
+            return
+
+        restored = []
+
+        # highlights
+        if 'highlights' in body:
+            save_json(HIGHLIGHTS_FILE, body['highlights'])
+            restored.append(f"highlights ({len(body['highlights'])})")
+
+        # sent
+        if 'sent' in body:
+            save_json(SENT_FILE, body['sent'])
+            restored.append(f"sent ({len(body['sent'])})")
+
+        # config (Notion API key, DB ID)
+        if 'config' in body:
+            save_json(CONFIG_FILE, body['config'])
+            restored.append('config')
+
+        # .env
+        if 'env_raw' in body and body['env_raw'].strip():
+            env_path = os.path.join(BASE_DIR, '.env')
+            with open(env_path, 'w', encoding='utf-8') as f:
+                f.write(body['env_raw'])
+            restored.append('.env')
+
+        self._json_response({
+            'status': 'ok',
+            'restored': restored
         })
 
     def _save_config(self):
