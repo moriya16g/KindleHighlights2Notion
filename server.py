@@ -1170,6 +1170,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
     def _send_auth_required(self):
         self.send_response(401)
+        self._cors_headers()
         self.send_header('WWW-Authenticate', 'Basic realm="Kindle Highlights"')
         self.send_header('Content-Type', 'text/plain; charset=utf-8')
         self.end_headers()
@@ -1495,7 +1496,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
     def _cors_headers(self):
         self.send_header('Access-Control-Allow-Origin', '*')
         self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
-        self.send_header('Access-Control-Allow-Headers', 'Content-Type')
+        self.send_header('Access-Control-Allow-Headers', 'Content-Type, Authorization')
 
     def _error(self, code, message):
         self.send_response(code)
